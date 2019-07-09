@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex, Once};
 use futures::{future, Future};
 use hyper::client::connect::dns as hyper_dns;
 use tokio;
+use super::async_impl::LookupIpStrategy;
 use trust_dns_resolver::{system_conf, AsyncResolver, BackgroundLookupIp};
 
 // If instead the type were just `AsyncResolver`, it breaks the default recursion limit
@@ -27,8 +28,9 @@ struct Inner {
 }
 
 impl TrustDnsResolver {
-    pub(crate) fn new() -> io::Result<Self> {
-        let (conf, opts) = system_conf::read_system_conf()?;
+    pub(crate) fn new(dns_strategy: LookupIpStrategy) -> io::Result<Self> {
+        let (conf, mut opts) = system_conf::read_system_conf()?;
+        opts.ip_strategy = dns_strategy.into();
         let (resolver, bg) = AsyncResolver::new(conf, opts);
 
         let resolver: ErasedResolver = Box::new(move |name| {

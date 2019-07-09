@@ -58,7 +58,7 @@ libflate = "0.1"
 doc-comment = "0.3"
 
 [features]
-default = ["default-tls"]
+default = ["default-tls", "trust-dns"]
 
 tls = []
 

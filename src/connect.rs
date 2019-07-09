@@ -12,6 +12,8 @@ use futures::Poll;
 #[cfg(feature = "tls")]
 use bytes::BufMut;
 
+use super::async_impl::LookupIpStrategy;
+
 use std::io;
 use std::sync::Arc;
 use std::net::IpAddr;
@@ -50,12 +52,15 @@ enum Inner {
 
 impl Connector {
     #[cfg(not(feature = "tls"))]
-    pub(crate) fn new<T>(proxies: Arc<Vec<Proxy>>, local_addr: T, nodelay: bool) -> ::Result<Connector>
+    pub(crate) fn new<T>(
+        proxies: Arc<Vec<Proxy>>, 
+        local_addr: T, 
+        nodelay: bool,
+        dns_strategy: LookupIpStrategy) -> ::Result<Connector>
     where
         T: Into<Option<IpAddr>>
     {
-
-        let mut http = http_connector()?;
+        let mut http = http_connector(dns_strategy)?;
         http.set_local_address(local_addr.into());
         http.set_nodelay(nodelay);
         Ok(Connector {
@@ -70,13 +75,14 @@ impl Connector {
         tls: TlsConnectorBuilder,
         proxies: Arc<Vec<Proxy>>,
         local_addr: T,
-        nodelay: bool) -> ::Result<Connector>
+        nodelay: bool,
+        dns_strategy: LookupIpStrategy) -> ::Result<Connector>
         where
             T: Into<Option<IpAddr>>,
     {
         let tls = try_!(tls.build());
 
-        let mut http = http_connector()?;
+        let mut http = http_connector(dns_strategy)?;
         http.set_local_address(local_addr.into());
         http.enforce_http(false);
 
@@ -93,11 +99,12 @@ impl Connector {
         tls: rustls::ClientConfig,
         proxies: Arc<Vec<Proxy>>,
         local_addr: T,
-        nodelay: bool) -> ::Result<Connector>
+        nodelay: bool,
+        dns_strategy: LookupIpStrategy) -> ::Result<Connector>
         where
             T: Into<Option<IpAddr>>,
     {
-        let mut http = http_connector()?;
+        let mut http = http_connector(dns_strategy)?;
         http.set_local_address(local_addr.into());
         http.enforce_http(false);
 
@@ -197,14 +204,14 @@ impl Connector {
 }
 
 #[cfg(feature = "trust-dns")]
-fn http_connector() -> ::Result<HttpConnector> {
-    TrustDnsResolver::new()
+fn http_connector(strategy: LookupIpStrategy) -> ::Result<HttpConnector> {
+    TrustDnsResolver::new(strategy)
         .map(HttpConnector::new_with_resolver)
         .map_err(::error::dns_system_conf)
 }
 
 #[cfg(not(feature = "trust-dns"))]
-fn http_connector() -> ::Result<HttpConnector> {
+fn http_connector(_: LookupIpStrategy) -> ::Result<HttpConnector> {
     Ok(HttpConnector::new(4))
 }
 

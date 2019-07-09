@@ -13,6 +13,8 @@ use response::Response;
 use {async_impl, header, Method, IntoUrl, Proxy, RedirectPolicy, wait};
 #[cfg(feature = "tls")]
 use {Certificate, Identity};
+#[cfg(feature = "trust-dns")]
+use {LookupIpStrategy};
 
 /// A `Client` to make Requests with.
 ///
@@ -384,6 +386,25 @@ impl ClientBuilder {
     /// ```
     pub fn cookie_store(self, enable: bool) -> ClientBuilder {
         self.with_inner(|inner| inner.cookie_store(enable))
+    }
+
+    /// Set a lookup ip strategy.
+    ///
+    /// Default is `Ipv4thenIpv6`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use reqwest::LookupIpStrategy;
+    /// 
+    /// let client = reqwest::Client::builder()
+    ///     .dns_strategy(LookupIpStrategy::Ipv4Only)
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    #[cfg(feature = "trust-dns")]
+    pub fn dns_strategy(self, strategy: LookupIpStrategy) -> ClientBuilder {
+        self.with_inner(|inner| inner.dns_strategy(strategy))
     }
 }
 

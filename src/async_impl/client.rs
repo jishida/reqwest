@@ -29,6 +29,7 @@ use native_tls::TlsConnector;
 use tokio::{clock, timer::Delay};
 
 
+use super::dns::LookupIpStrategy;
 use super::request::{Request, RequestBuilder};
 use super::response::Response;
 use connect::Connector;
@@ -86,6 +87,7 @@ struct Config {
     local_address: Option<IpAddr>,
     nodelay: bool,
     cookie_store: Option<cookie::CookieStore>,
+    dns_strategy: LookupIpStrategy,
 }
 
 impl ClientBuilder {
@@ -122,6 +124,7 @@ impl ClientBuilder {
                 local_address: None,
                 nodelay: false,
                 cookie_store: None,
+                dns_strategy: LookupIpStrategy::default(),
             },
         }
     }
@@ -153,7 +156,7 @@ impl ClientBuilder {
                         id.add_to_native_tls(&mut tls)?;
                     }
 
-                    Connector::new_default_tls(tls, proxies.clone(), config.local_address, config.nodelay)?
+                    Connector::new_default_tls(tls, proxies.clone(), config.local_address, config.nodelay, config.dns_strategy)?
                 },
                 #[cfg(feature = "rustls-tls")]
                 TlsBackend::Rustls => {
@@ -182,12 +185,12 @@ impl ClientBuilder {
                         id.add_to_rustls(&mut tls)?;
                     }
 
-                    Connector::new_rustls_tls(tls, proxies.clone(), config.local_address, config.nodelay)?
+                    Connector::new_rustls_tls(tls, proxies.clone(), config.local_address, config.nodelay, config.dns_strategy)?
                 }
             }
 
             #[cfg(not(feature = "tls"))]
-            Connector::new(proxies.clone(), config.local_address, config.nodelay)?
+            Connector::new(proxies.clone(), config.local_address, config.nodelay, config.dns_strategy)?
         };
 
         connector.set_timeout(config.connect_timeout);
@@ -414,6 +417,15 @@ impl ClientBuilder {
         } else {
             None
         };
+        self
+    }
+
+    /// Set a lookup ip strategy.
+    ///
+    /// Default is `Ipv4ThenIpv6`.
+    #[cfg(feature = "trust-dns")]
+    pub fn dns_strategy(mut self, strategy: LookupIpStrategy) -> ClientBuilder {
+        self.config.dns_strategy = strategy;
         self
     }
 }
